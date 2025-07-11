@@ -9,5 +9,6 @@ def generate_tickets_from_variants(
 ) -> List[Ticket]:
     all_tickets = []
     for func, params in variants:
-        all_tickets.extend(func(draws_df=draws_df, **params))
+        tickets = func(draws_df=draws_df, **params)
+        all_tickets.extend(tickets)
     return all_tickets
