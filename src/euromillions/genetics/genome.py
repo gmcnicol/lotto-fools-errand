@@ -1,7 +1,5 @@
 from typing import List, Dict, Callable, Tuple
 from euromillions.generators import strategies
-from euromillions.evolution import evaluator, fitness
-from euromillions.evolution.combiners import round_robin_dedup
 import pandas as pd
 
 

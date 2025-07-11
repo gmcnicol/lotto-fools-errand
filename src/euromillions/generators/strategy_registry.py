@@ -1,32 +1,20 @@
 # src/euromillions/generators/strategy_registry.py
 
-from typing import Callable
-from euromillions.generators.strategies import (
-    strategy_example,
-    modulo_increment,
-)
+from typing import Callable, Dict, Any, Tuple
 
-# Registry maps strategy name strings to the corresponding generator function
-STRATEGY_REGISTRY: dict[str, Callable] = {
-    "strategy_example": strategy_example.generate_strategy_example,
-    "modulo_increment": modulo_increment.generate_modulo_increment,
-}
+from euromillions.generators.strategies.modulo_increment import generate_modulo_increment
 
+# List of (strategy_function, params) to be genome-indexed
+strategy_variants: list[Tuple[Callable, Dict[str, Any]]] = [
+    (generate_modulo_increment, {"start": 1, "increment": 2}),
+    (generate_modulo_increment, {"start": 3, "increment": 5}),
+    (generate_modulo_increment, {"start": 7, "increment": 4}),
+    (generate_modulo_increment, {"start": 10, "increment": 1}),
+    (generate_modulo_increment, {"start": 2, "increment": 6}),
+]
 
-def get_strategy_function(name: str) -> Callable:
-    """
-    Retrieve the strategy function from the registry by name.
-
-    Args:
-        name (str): Name of the strategy (e.g., 'modulo_increment')
-
-    Returns:
-        Callable: Function that implements the strategy
-
-    Raises:
-        ValueError: If the strategy is not found
-    """
+def get_strategy_variant(index: int) -> Tuple[Callable, Dict[str, Any]]:
     try:
-        return STRATEGY_REGISTRY[name]
-    except KeyError:
-        raise ValueError(f"Unknown strategy: {name}")
+        return strategy_variants[index]
+    except IndexError:
+        raise ValueError(f"Strategy index {index} out of range (max {len(strategy_variants) - 1})")

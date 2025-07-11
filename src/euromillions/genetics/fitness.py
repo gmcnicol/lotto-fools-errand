@@ -1,37 +1,39 @@
-# src/euromillions/evolution/fitness.py
+# src/euromillions/genetics/fitness.py
 
-import pandas as pd
-from typing import List
-from euromillions.euromillions_loader import load_draws
-from euromillions.generators.strategy_example import generate_strategy_example
+from euromillions.generators.strategy_registry import get_strategy_variant
+from euromillions.generators.ticket_generator import generate_tickets_from_variants
+from euromillions.euromillions_loader import load_draws_df, load_prizes_df
 
-TICKET_COST = 2.5  # £ per ticket
+TICKET_COST = 2.5
 
-def compute_winnings(ticket_main: List[int], ticket_stars: List[int], draw: dict) -> float:
-    matched_main = len(set(ticket_main) & set(draw["main_numbers"]))
-    matched_stars = len(set(ticket_stars) & set(draw["lucky_stars"]))
+def evaluate_genome(genome):
+    """
+    Given a binary genome, evaluate the total profit/loss using actual prize payouts.
+    """
+    draws_df = load_draws_df()
+    prizes_df = load_prizes_df()
 
-    key = f"{matched_main}+{matched_stars}"
-    breakdown = draw.get("prize_breakdown", {})
+    # Get only enabled strategy variants
+    active_variants = [get_strategy_variant(i) for i, bit in enumerate(genome) if bit == 1]
 
-    prize = breakdown.get(key, {}).get("prize", 0.0)
-    return float(prize)
+    if not active_variants:
+        return float('-inf')  # Penalize empty genomes
 
-def evaluate_genome(genome: List[int], draws_df: pd.DataFrame, step: int = 3, window: int = 100) -> float:
-    profit = 0.0
-    cost = 0.0
+    tickets = generate_tickets_from_variants(draws_df, active_variants)
+    total_cost = len(tickets) * TICKET_COST
+    total_payout = 0
 
-    for i in range(window, len(draws_df) - 1, step):
-        train_draws = draws_df.iloc[i - window:i]
-        next_draw = draws_df.iloc[i + 1]
-
-        # For now, only use strategy_example (genome ignored)
-        tickets = generate_strategy_example(train_draws)
-
+    for draw in draws_df.itertuples():
+        draw_id = draw.draw_id
+        prize_info = prizes_df.get(draw_id, {})
         for ticket in tickets:
             main, stars = ticket
-            winnings = compute_winnings(main, stars, next_draw)
-            profit += winnings
-            cost += TICKET_COST
+            main_match = match_count(main, draw.main_numbers)
+            star_match = match_count(stars, draw.lucky_stars)
+            match_key = f"{main_match}+{star_match}"
+            total_payout += prize_info.get(match_key, 0)
 
-    return profit - cost
+    return total_payout - total_cost
+
+def match_count(a, b):
+    return len(set(a) & set(b))

@@ -1,11 +1,11 @@
 # src/euromillions/__main__.py
 
 import typer
-from euromillions.euromillions_loader import load_draws, fetch_and_cache_draws
-from euromillions.generators.ticket_generator import generate_tickets
-from euromillions.evolution import genome as genome_runner
+from euromillions.euromillions_loader import fetch_and_cache_draws, load_draws
+from euromillions.generators.ticket_generator import generate_tickets_from_variants
+from euromillions.generators.strategy_registry import get_strategy_variant
 
-app = typer.Typer(help="🎰 EuroMillions CLI")
+app = typer.Typer()
 
 @app.command("fetch-draws")
 def fetch_draws_command():
@@ -13,47 +13,27 @@ def fetch_draws_command():
     Fetch EuroMillions draws from API and cache them.
     """
     fetch_and_cache_draws()
-    typer.secho("✅ Draws fetched and cached.", fg=typer.colors.GREEN)
+    typer.secho("Draws fetched and cached.", fg=typer.colors.GREEN)
 
 @app.command("generate")
 def generate_command(
-        strategy: str = typer.Option(..., "--strategy", "-s"),
-        step: int = typer.Option(3, "--step", "-t"),
-        window: int = typer.Option(100, "--window", "-w")
-):
-    """
-    Generate 10 EuroMillions tickets using a named strategy.
-    """
-    draws = load_draws()
-    tickets = generate_tickets(strategy, draws_df=draws, step=step, window=window)
-
-    typer.secho(f"\n🎟️  Strategy: {strategy}", fg=typer.colors.GREEN)
-    for i, (main, stars) in enumerate(tickets, 1):
-        typer.echo(f"{i:2d}. Main: {main} | Stars: {stars}")
-
-@app.command("evolve-genome")
-def evolve_genome_command(
-        genome_str: str = typer.Option(..., "--genome", "-g", help="Binary genome like 0110101011"),
-        step: int = typer.Option(3, "--step", "-t"),
+        strategy_index: int = typer.Option(0, "--strategy-index", "-i", help="Index of strategy variant"),
+        step: int = typer.Option(3, "--step", "-s"),
         window: int = typer.Option(100, "--window", "-w"),
 ):
     """
-    Evolve a genome over historical draws.
+    Generate EuroMillions tickets using a specified strategy variant.
     """
-    genome = [int(c) for c in genome_str.strip() if c in "01"]
-    draws = load_draws()
+    draws_df = load_draws()
 
-    trace = genome_runner.evaluate_genome(
-        genome=genome,
-        draws_df=draws,
-        window=window,
-        step=step,
-        verbose=True
-    )
+    func, params = get_strategy_variant(strategy_index)
+    params.update({"step": step, "window": window})
 
-    typer.secho(f"\n🧬 Genome {genome} results:", fg=typer.colors.MAGENTA)
-    for entry in trace:
-        typer.echo(f"Draw {entry['draw_number']:>3}: score={entry['score']}")
+    tickets = generate_tickets_from_variants(draws_df=draws_df, variants=[(func, params)])
+
+    typer.secho(f"Strategy Index: {strategy_index}", fg=typer.colors.BLUE)
+    for i, (main, stars) in enumerate(tickets, 1):
+        typer.echo(f"{i:2d}. Main: {main} | Stars: {stars}")
 
 if __name__ == "__main__":
     app()

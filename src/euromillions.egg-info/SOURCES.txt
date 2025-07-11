@@ -10,13 +10,12 @@ src/euromillions/evolution/__init__.py
 src/euromillions/evolution/combiners.py
 src/euromillions/evolution/evaluator.py
 src/euromillions/evolution/evolution_loop.py
-src/euromillions/evolution/fitness.py
 src/euromillions/evolution/genome.py
 src/euromillions/generators/__init__.py
-src/euromillions/generators/strategy_example.py
 src/euromillions/generators/strategy_registry.py
 src/euromillions/generators/ticket_generator.py
 src/euromillions/generators/strategies/__init__.py
+src/euromillions/generators/strategies/modulo_increment.py
 src/euromillions/generators/strategies/strategy_example.py
 src/euromillions/genetics/__init__.py
 src/euromillions/genetics/fitness.py
