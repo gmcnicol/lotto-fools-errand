@@ -1,4 +1,3 @@
-import random
 from euromillions.genetics.genome import (
     generate_random_chromosome,
     mutate_chromosome,
