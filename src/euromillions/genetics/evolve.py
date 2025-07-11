@@ -1,71 +1,81 @@
 import random
 from typing import List
-
-from euromillions.euromillions_loader import load_draws_df, load_prizes_df
+from euromillions.genetics.genome import Chromosome, generate_random_chromosome, mutate_chromosome, evaluate_chromosome
 from euromillions.generators.strategy_registry import get_all_strategy_variants
 from euromillions.generators.ticket_generator import generate_tickets_from_variants
-from euromillions.genetics.fitness import evaluate_ticket_set
+from euromillions.euromillions_loader import load_draws_df
 
-Chromosome = List[int]
-Population = List[Chromosome]
-
-def generate_random_chromosome(length: int) -> Chromosome:
-    return [random.randint(0, 1) for _ in range(length)]
-
-def mutate_chromosome(chromosome: Chromosome, mutation_rate: float = 0.1) -> Chromosome:
-    return [gene if random.random() > mutation_rate else 1 - gene for gene in chromosome]
-
-def crossover(parent1: Chromosome, parent2: Chromosome) -> Chromosome:
-    point = random.randint(1, len(parent1) - 1)
-    return parent1[:point] + parent2[point:]
-
-def evaluate_chromosome(chromosome: Chromosome, draws_df, prizes_df, all_variants) -> float:
-    selected = [v for g, v in zip(chromosome, all_variants) if g]
-    if not selected:
-        return 0.0
-    tickets = generate_tickets_from_variants(draws_df, selected)
-    return evaluate_ticket_set(tickets, draws_df, prizes_df)
-
-def run_genetic_algorithm():
+def run_evolution(
+        population_size: int = 50,
+        generations: int = 100,
+        mutation_rate: float = 0.1,
+        convergence_limit: int = 5,
+):
     draws_df = load_draws_df()
-    prizes_df = load_prizes_df()
-    all_variants = get_all_strategy_variants()
-    chrom_len = len(all_variants)
-    population_size = 20
-    generations = 10000
-    stagnation_limit = 5
+    strategy_variants = get_all_strategy_variants()
+    chromosome_length = len(strategy_variants)
 
-    population = [generate_random_chromosome(chrom_len) for _ in range(population_size)]
-    best_chromosome = None
+    population: List[Chromosome] = [
+        generate_random_chromosome(chromosome_length)
+        for _ in range(population_size)
+    ]
+
     best_score = 0.0
-    no_improve_count = 0
+    best_chromosome = None
+    no_improvement_generations = 0
 
-    for gen in range(generations):
-        scored = [(chromo, evaluate_chromosome(chromo, draws_df, prizes_df, all_variants)) for chromo in population]
-        scored.sort(key=lambda x: x[1], reverse=True)
-        top = scored[:5]
-        population = [c for c, _ in top]
+    for generation in range(generations):
+        scored_population = [
+            (chromosome, evaluate_chromosome(chromosome))
+            for chromosome in population
+        ]
 
-        if top[0][1] > best_score:
-            best_score = top[0][1]
-            best_chromosome = top[0][0]
-            no_improve_count = 0
+        scored_population.sort(key=lambda x: x[1], reverse=True)
+        best_in_generation = scored_population[0]
+
+        print(f"Generation {generation + 1}: Best Score = {best_in_generation[1]}, Chromosome = {best_in_generation[0]}")
+
+        if best_in_generation[1] > best_score:
+            best_score = best_in_generation[1]
+            best_chromosome = best_in_generation[0]
+            no_improvement_generations = 0
         else:
-            no_improve_count += 1
+            no_improvement_generations += 1
 
-        while len(population) < population_size:
-            p1, p2 = random.sample(top, 2)
-            child = mutate_chromosome(crossover(p1[0], p2[0]))
-            population.append(child)
-
-        if no_improve_count >= stagnation_limit:
+        if no_improvement_generations >= convergence_limit:
+            print(f"Converged after {generation + 1} generations.")
             break
 
-    print("Best Chromosome:", best_chromosome)
-    print("Best Score:", best_score)
+        # Selection (top 25%)
+        survivors = [chrom for chrom, _ in scored_population[: population_size // 4]]
 
-    selected = [v for g, v in zip(best_chromosome, all_variants) if g]
-    tickets = generate_tickets_from_variants(draws_df, selected)
-    print("Suggested Tickets:")
-    for line in tickets[:10]:
-        print("Numbers:", line[0], "Stars:", line[1])
+        # Crossover
+        children = []
+        while len(children) + len(survivors) < population_size:
+            parent1 = random.choice(survivors)
+            parent2 = random.choice(survivors)
+            split = random.randint(1, chromosome_length - 1)
+            child = parent1[:split] + parent2[split:]
+            children.append(child)
+
+        # Mutation
+        mutated = [mutate_chromosome(chrom, mutation_rate) for chrom in children]
+
+        # New population
+        population = survivors + mutated
+
+    print("\n🏆 Best Chromosome Found:", best_chromosome)
+    print("Fitness Score:", best_score)
+
+    # Show the tickets from this chromosome
+    selected_variants = [
+        variant for gene, variant in zip(best_chromosome, strategy_variants) if gene
+    ]
+    if not selected_variants:
+        print("No active strategies in final chromosome.")
+        return
+
+    tickets = generate_tickets_from_variants(draws_df, selected_variants)
+    print("\n🎟️ Suggested Tickets to Play:")
+    for i, (numbers, stars) in enumerate(tickets[:10], 1):
+        print(f"{i:2d}: Numbers={numbers}, Stars={stars}")
