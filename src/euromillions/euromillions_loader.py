@@ -1,43 +1,45 @@
-import os
 import requests
 import pandas as pd
+from pathlib import Path
+from datetime import datetime
 
-DATA_DIR = "data"
-CACHE_PATH = os.path.join(DATA_DIR, "euromillions_draws.parquet")
-API_URL = "https://euromillions.api.pedromealha.dev/v1/draws"
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DRAWS_PATH = DATA_DIR / "draws.parquet"
 
-def fetch_draws():
-    print("Fetching EuroMillions draw history from API...")
-    response = requests.get(API_URL)
+DRAW_API_URL = "https://euromillions.api.pedromealha.dev/v1/draws"
+
+def fetch_and_cache_draws():
+    response = requests.get(DRAW_API_URL)
     response.raise_for_status()
-    return response.json()
+    draw_list = response.json()
 
-def parse_draws(raw_draws):
-    records = [
-        {
-            "draw_date": draw["date"],
-            "numbers": draw["numbers"],
-            "stars": draw["stars"]
-        }
-        for draw in raw_draws
-    ]
-    df = pd.DataFrame(records)
-    df["draw_date"] = pd.to_datetime(df["draw_date"])
-    return df.sort_values("draw_date")
+    rows = []
+    for draw in draw_list:
+        draw_id = int(draw["id"])
+        date = draw["date"]
+        main = draw.get("numbers", [])
+        stars = draw.get("stars", [])
+        prizes = draw.get("prizes", [])
 
-def load_draws(force_refresh=False):
-    os.makedirs(DATA_DIR, exist_ok=True)
+        rows.append({
+            "draw_id": draw_id,
+            "date": datetime.strptime(date, "%Y-%m-%d"),
+            "main_numbers": [int(n) for n in main],
+            "lucky_stars": [int(s) for s in stars],
+            "prizes": prizes,
+            "has_winner": any(p.get("winners", 0) > 0 for p in prizes),
+        })
 
-    if not force_refresh and os.path.exists(CACHE_PATH):
-        print(f"Loading draws from cache: {CACHE_PATH}")
-        return pd.read_parquet(CACHE_PATH)
+    df = pd.DataFrame(rows)
+    df.to_parquet(DRAWS_PATH, index=False)
 
-    raw = fetch_draws()
-    df = parse_draws(raw)
-    df.to_parquet(CACHE_PATH, index=False)
-    print(f"Cached draws to: {CACHE_PATH}")
-    return df
+def load_draws() -> pd.DataFrame:
+    return pd.read_parquet(DRAWS_PATH)
 
-if __name__ == "__main__":
+def load_prizes(draw_id: int) -> list[dict]:
     df = load_draws()
-    print(df.head())
+    row = df[df["draw_id"] == draw_id]
+    if not row.empty:
+        return row.iloc[0]["prizes"]
+    return []
