@@ -1,21 +1,25 @@
-.PHONY: install clean generate-data generate evolve-genome
+# Makefile for euromillions-ga
 
-UV ?= uv
-PYTHON := .venv/bin/python
+VENV = .venv
+PYTHON = uv run -- python -m euromillions
 
-install:
-	$(UV) pip install -e .
-	$(UV) pip install typer pandas pyarrow fastparquet rich
+.PHONY: clean install fetch generate generate-data test
 
 clean:
 	rm -rf data/*.parquet
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 
-generate-data:
-	$(UV) run -- python -m euromillions fetch-draws
+install:
+	uv pip install -e .
+	uv pip install typer pandas pyarrow fastparquet rich
+
+fetch:
+	$(PYTHON) fetch-draws
 
 generate:
-	$(UV) run -- python -m euromillions generate --strategy strategy_example --step 3 --window 100
+	$(PYTHON) generate
 
-evolve-genome:
-	$(UV) run -- python -m euromillions evolve-genome --genome 1 --step 3 --window 100
+generate-data: fetch generate
+
+test:
+	uv run -- pytest tests/

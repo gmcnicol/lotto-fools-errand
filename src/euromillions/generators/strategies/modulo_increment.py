@@ -1,45 +1,23 @@
 # src/euromillions/generators/strategies/modulo_increment.py
 
-import random
 from typing import List, Tuple
+import pandas as pd
 
-def generate_modulo_increment(
-        draws_df,
-        step: int = 1,
-        window: int = 100,
-        modulus: int = 5,
-        increment: int = 1,
-        offset: int = 0,
-) -> List[Tuple[List[int], List[int]]]:
+Ticket = Tuple[List[int], List[int]]
+
+def generate_modulo_increment(draws_df: pd.DataFrame, start: int = 1, increment: int = 1) -> List[Ticket]:
     """
-    Generate 10 tickets using modulo arithmetic on number space.
-    Main numbers follow a modular pattern, stars are chosen randomly.
+    Strategy that generates a ticket by selecting numbers starting from `start` and incrementing by `increment`.
+    Wraps around 50 for numbers and 12 for stars.
 
     Parameters:
-        draws_df (DataFrame): Historical draws.
-        step (int): Ignored in this strategy.
-        window (int): Ignored in this strategy.
-        modulus (int): Modulo base to define groups.
-        increment (int): Step size for iterating candidates.
-        offset (int): Offset for modular group starting point.
+        draws_df (pd.DataFrame): Not used directly, but included to match expected function signature.
+        start (int): Starting number for sequence.
+        increment (int): Increment step for sequence.
 
     Returns:
-        List of 10 tickets, each a tuple of (main_numbers, lucky_stars)
+        List[Ticket]: A single ticket with 5 numbers and 2 stars.
     """
-    available_main = list(range(1, 51))
-    available_stars = list(range(1, 13))
-
-    selected_main = []
-    for i in range(offset, 50, increment):
-        if i % modulus == offset:
-            selected_main.append(i + 1)
-        if len(selected_main) >= 5:
-            break
-
-    tickets = []
-    for _ in range(10):
-        main = sorted(random.sample(selected_main, 5))
-        stars = sorted(random.sample(available_stars, 2))
-        tickets.append((main, stars))
-
-    return tickets
+    numbers = [(start + i * increment - 1) % 50 + 1 for i in range(5)]
+    stars = [(start + i * increment - 1) % 12 + 1 for i in range(2)]
+    return [(numbers, stars)]

@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 import requests
 
 DRAW_URL = "https://euromillions.api.pedromealha.dev/v1/draws"
