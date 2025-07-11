@@ -1,7 +1,7 @@
 # src/euromillions/genetics/fitness.py
 
 from typing import List, Tuple
-import pandas as pd
+
 from euromillions.euromillions_loader import load_draws_df, load_prizes_df
 
 Ticket = Tuple[List[int], List[int]]

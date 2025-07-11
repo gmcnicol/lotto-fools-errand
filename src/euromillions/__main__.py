@@ -1,7 +1,7 @@
 # src/euromillions/__main__.py
 
 import typer
-from euromillions.euromillions_loader import fetch_and_cache_draws, load_draws
+from euromillions.euromillions_loader import fetch_and_cache_draws, load_draws_df
 from euromillions.generators.ticket_generator import generate_tickets_from_variants
 from euromillions.generators.strategy_registry import get_strategy_variant
 
@@ -24,7 +24,7 @@ def generate_command(
     """
     Generate EuroMillions tickets using a specified strategy variant.
     """
-    draws_df = load_draws()
+    draws_df = load_draws_df()
 
     func, params = get_strategy_variant(strategy_index)
     params.update({"step": step, "window": window})
