@@ -1,39 +1,44 @@
 # src/euromillions/genetics/fitness.py
 
-from euromillions.generators.strategy_registry import get_strategy_variant
-from euromillions.generators.ticket_generator import generate_tickets_from_variants
+from typing import List, Tuple
+import pandas as pd
 from euromillions.euromillions_loader import load_draws_df, load_prizes_df
 
-TICKET_COST = 2.5
+Ticket = Tuple[List[int], List[int]]
 
-def evaluate_genome(genome):
-    """
-    Given a binary genome, evaluate the total profit/loss using actual prize payouts.
-    """
+TICKET_COST = 2.50  # GBP per ticket
+
+def evaluate_ticket_set_fitness(tickets: List[Ticket], target_draw_id: int) -> float:
     draws_df = load_draws_df()
     prizes_df = load_prizes_df()
 
-    # Get only enabled strategy variants
-    active_variants = [get_strategy_variant(i) for i, bit in enumerate(genome) if bit == 1]
+    draw = draws_df[draws_df["draw_id"] == target_draw_id]
+    if draw.empty:
+        raise ValueError(f"No draw found for draw_id={target_draw_id}")
+    draw = draw.iloc[0]
 
-    if not active_variants:
-        return float('-inf')  # Penalize empty genomes
+    winning_main = set(draw["main_numbers"])
+    winning_stars = set(draw["lucky_stars"])
 
-    tickets = generate_tickets_from_variants(draws_df, active_variants)
-    total_cost = len(tickets) * TICKET_COST
-    total_payout = 0
+    prize_row = prizes_df[prizes_df["draw_id"] == target_draw_id]
+    if prize_row.empty:
+        raise ValueError(f"No prize breakdown found for draw_id={target_draw_id}")
+    prize_row = prize_row.iloc[0]
 
-    for draw in draws_df.itertuples():
-        draw_id = draw.draw_id
-        prize_info = prizes_df.get(draw_id, {})
-        for ticket in tickets:
-            main, stars = ticket
-            main_match = match_count(main, draw.main_numbers)
-            star_match = match_count(stars, draw.lucky_stars)
-            match_key = f"{main_match}+{star_match}"
-            total_payout += prize_info.get(match_key, 0)
+    total_winnings = 0.0
+    for main, stars in tickets:
+        matched_main = len(set(main) & winning_main)
+        matched_stars = len(set(stars) & winning_stars)
+        prize_key = f"{matched_main}+{matched_stars}"
 
-    return total_payout - total_cost
+        prize = prize_row.get(prize_key, 0.0)
+        if isinstance(prize, str):
+            try:
+                prize = float(prize.replace(",", ""))
+            except ValueError:
+                prize = 0.0
+        total_winnings += prize
 
-def match_count(a, b):
-    return len(set(a) & set(b))
+    cost = len(tickets) * TICKET_COST
+    profit = total_winnings - cost
+    return profit
