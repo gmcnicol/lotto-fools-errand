@@ -1,1 +1,0 @@
-uv run -- python -m euromillions generate --strategy strategy_example --step 3 --window 100
