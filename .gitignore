@@ -3,3 +3,5 @@ data/
 *.parquet
 /.idea/
 *.zip
+*.egg-info/
+*.egg-info/
