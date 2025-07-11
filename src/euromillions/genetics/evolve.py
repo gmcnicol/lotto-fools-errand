@@ -10,13 +10,17 @@ Chromosome = List[int]
 MAX_ITERATIONS = 10_000
 CONVERGENCE_COUNT = 5
 TICKET_COUNT = 7
+MIN_ACTIVE_STRATEGIES = 1
+MAX_ACTIVE_STRATEGIES = 5
+
 
 def generate_random_chromosome(length: int) -> Chromosome:
-    # Allow 1 to N strategies to be active
     while True:
         chromo = [random.randint(0, 1) for _ in range(length)]
-        if 1 <= sum(chromo) <= length:
+        active_count = sum(chromo)
+        if MIN_ACTIVE_STRATEGIES <= active_count <= MAX_ACTIVE_STRATEGIES:
             return chromo
+
 
 def mutate_chromosome(chromosome: Chromosome, mutation_rate: float = 0.1) -> Chromosome:
     return [
