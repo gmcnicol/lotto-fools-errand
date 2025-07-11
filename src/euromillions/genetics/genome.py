@@ -1,50 +1,33 @@
-# src/euromillions/genetics/genome.py
-
+import random
 from typing import List, Tuple
-
-from euromillions.euromillions_loader import load_draws_df, load_prizes_df
-from euromillions.generators.strategy_registry import get_strategy_variant
 from euromillions.generators.ticket_generator import generate_tickets_from_variants
+from euromillions.generators.strategy_registry import get_all_strategy_variants
 from euromillions.genetics.fitness import evaluate_ticket_set
+from euromillions.euromillions_loader import load_draws_df
 
-Ticket = Tuple[List[int], List[int]]
+# Chromosome is a binary list representing active strategy variants
+Chromosome = List[int]
 
-def round_robin_dedup(tickets: List[Ticket], count: int) -> List[Ticket]:
-    seen = set()
-    result = []
-    for main, stars in tickets:
-        key = (tuple(sorted(main)), tuple(sorted(stars)))
-        if key not in seen:
-            seen.add(key)
-            result.append((main, stars))
-        if len(result) >= count:
-            break
-    return result
+def generate_random_chromosome(length: int) -> Chromosome:
+    return [random.randint(0, 1) for _ in range(length)]
 
-def run_genome(
-        genome: List[int],
-        draws_df = None,
-        prizes_df = None,
-        num_tickets: int = 10
-):
-    if draws_df is None:
-        draws_df = load_draws_df()
-    if prizes_df is None:
-        prizes_df = load_prizes_df()
-
-    # Activate strategy variants
-    active_variants = [
-        get_strategy_variant(i)
-        for i, bit in enumerate(genome)
-        if bit == 1
+def mutate_chromosome(chromosome: Chromosome, mutation_rate: float = 0.1) -> Chromosome:
+    return [
+        gene if random.random() > mutation_rate else 1 - gene
+        for gene in chromosome
     ]
 
-    tickets = generate_tickets_from_variants(draws_df, active_variants)
-    tickets = round_robin_dedup(tickets, num_tickets)
+def evaluate_chromosome(chromosome: Chromosome) -> float:
+    all_variants = get_all_strategy_variants()
+    draws_df = load_draws_df()
 
-    score = evaluate_ticket_set(tickets, draws_df, prizes_df)
-    return {
-        "genome": genome,
-        "tickets": tickets,
-        "score": score
-    }
+    # Filter variants based on chromosome
+    selected_variants = [
+        variant for gene, variant in zip(chromosome, all_variants) if gene
+    ]
+
+    if not selected_variants:
+        return 0.0
+
+    tickets = generate_tickets_from_variants(draws_df, selected_variants)
+    return evaluate_ticket_set(tickets)

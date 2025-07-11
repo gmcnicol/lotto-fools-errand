@@ -1,5 +1,3 @@
-# src/euromillions/generators/ticket_generator.py
-
 from typing import Callable, List, Tuple
 import pandas as pd
 
@@ -11,6 +9,5 @@ def generate_tickets_from_variants(
 ) -> List[Ticket]:
     all_tickets = []
     for func, params in variants:
-        tickets = func(draws_df=draws_df, **params)
-        all_tickets.extend(tickets)
+        all_tickets.extend(func(draws_df=draws_df, **params))
     return all_tickets
