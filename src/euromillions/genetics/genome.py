@@ -1,69 +1,47 @@
-from typing import List, Dict, Callable, Tuple
-from euromillions.generators import strategies
-import pandas as pd
+from typing import List
+
+from euromillions.generators.strategy_registry import get_strategy_variant
+from euromillions.genetics.dedup import round_robin_dedup
+from euromillions.genetics.fitness import evaluate_ticket_set_fitness
+from euromillions.euromillions_loader import load_draws_df
 
 
-def get_strategies_from_genome(
+def run_genome(
         genome: List[int],
-        strategy_funcs: Dict[str, Callable]
-) -> Dict[str, Callable]:
-    """
-    Filters strategy functions by genome activation bits.
-    """
-    active = {}
-    names = list(strategy_funcs.keys())
-    for i, bit in enumerate(genome):
-        if bit and i < len(names):
-            name = names[i]
-            active[name] = strategy_funcs[name]
-    return active
-
-
-def evaluate_genome(
-        genome: List[int],
-        draws_df: pd.DataFrame,
-        window: int = 100,
+        draws_df=None,
+        num_tickets: int = 10,
         step: int = 3,
-        verbose: bool = False
-) -> List[Dict[str, int]]:
+        window: int = 100,
+):
     """
-    Runs draw-by-draw evolution using a genome to select strategies.
-    Returns per-draw performance history.
+    Run a genome, generating and evaluating tickets.
+    Each bit in the genome determines whether to activate a strategy variant.
     """
-    results = []
-    strategy_funcs = strategies.get_all_strategies()
-    selected = get_strategies_from_genome(genome, strategy_funcs)
+    if draws_df is None:
+        draws_df = load_draws_df()
 
-    if not selected:
-        raise ValueError("Genome selected no strategies.")
+    active_strategies = [
+        get_strategy_variant(i) for i, bit in enumerate(genome) if bit == 1
+    ]
 
-    for i in range(1, len(draws_df)):
-        history = draws_df.iloc[:i]
-        target = draws_df.iloc[i]
+    if not active_strategies:
+        raise ValueError("Genome did not activate any strategy variants.")
 
-        # Generate tickets from each strategy
-        all_tickets = []
-        for func in selected.values():
-            all_tickets.extend(func(draws_df=history, step=step, window=window))
+    # Generate tickets from each strategy
+    all_ticket_sets = []
+    for generator_fn, params in active_strategies:
+        tickets = generator_fn(draws_df, step=step, window=window, **params)
+        all_ticket_sets.append(tickets)
 
-        # Combine into final ticket set
-        combined = round_robin_dedup(all_tickets, limit=10)
+    # Combine tickets from all strategies
+    combined = round_robin_dedup(all_ticket_sets, max_len=num_tickets)
 
-        match_results = evaluator.evaluate_all_tickets(
-            combined,
-            draw_main=target["main_numbers"],
-            draw_stars=target["star_numbers"]
-        )
+    # Evaluate tickets against actual draws
+    score, detail = evaluate_ticket_set_fitness(combined, draws_df)
 
-        score = fitness.score_all_tickets(match_results)
-
-        if verbose:
-            print(f"Draw {i+1}: Genome score {score}")
-
-        results.append({
-            "draw_number": i + 1,
-            "genome": genome,
-            "score": score
-        })
-
-    return results
+    return {
+        "genome": genome,
+        "score": score,
+        "tickets": combined,
+        "detail": detail,
+    }
