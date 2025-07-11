@@ -1,7 +1,7 @@
 import typer
+import pandas as pd
 from euromillions.euromillions_loader import fetch_and_cache_draws, load_draws_df
 from euromillions.genetics.evolve import run_evolution
-import pandas as pd
 
 app = typer.Typer()
 
@@ -24,6 +24,7 @@ def stats_command():
         print("No draws found.")
         return
 
+    draws_df["date"] = pd.to_datetime(draws_df["date"])
     latest = draws_df["date"].max()
     earliest = draws_df["date"].min()
     total = len(draws_df)
