@@ -1,7 +1,6 @@
 import typer
-from euromillions.euromillions_loader import fetch_and_cache_draws
-from euromillions.genetics.run_evolution import run_evolution
-from euromillions.euromillions_loader import load_draws_df
+from euromillions.euromillions_loader import fetch_and_cache_draws, load_draws_df
+from euromillions.genetics.evolve import run_evolution
 import pandas as pd
 
 app = typer.Typer()

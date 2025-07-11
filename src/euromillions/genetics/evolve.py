@@ -1,9 +1,10 @@
 import random
-from typing import List, Tuple
-from euromillions.generators.ticket_generator import generate_tickets_from_variants
-from euromillions.generators.strategy_registry import get_all_strategy_variants
-from euromillions.genetics.fitness import evaluate_ticket_set
+from typing import List
+
 from euromillions.euromillions_loader import load_draws_df, load_prizes_df
+from euromillions.generators.strategy_registry import get_all_strategy_variants
+from euromillions.generators.ticket_generator import generate_tickets_from_variants
+from euromillions.genetics.fitness import evaluate_ticket_set
 
 Chromosome = List[int]
 Population = List[Chromosome]
