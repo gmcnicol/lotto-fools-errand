@@ -18,7 +18,6 @@ def generate_modulo_increment(draws_df: pd.DataFrame, start: int = 1, increment:
     Returns:
         List[Ticket]: A single ticket with 5 numbers and 2 stars.
     """
-
     numbers = [(start + i * increment - 1) % 50 + 1 for i in range(5)]
     stars = [(start + i * increment - 1) % 12 + 1 for i in range(2)]
     return [(numbers, stars)]

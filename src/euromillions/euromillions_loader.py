@@ -1,5 +1,3 @@
-import logging
-
 import pandas as pd
 import requests
 
@@ -12,15 +10,10 @@ def fetch_and_cache_draws():
     draws = response.json()
     draws_df = pd.DataFrame(draws)
     draws_df.to_parquet(DRAW_PATH)
-    draws_df.to_parquet(PRIZE_PATH)
+    draws_df.to_parquet(PRIZE_PATH)  # assuming same for placeholder
 
 def load_draws_df():
     return pd.read_parquet(DRAW_PATH)
 
 def load_prizes_df():
-    logger = logging.getLogger(__name__)
-    logger.info("Loading prizes DataFrame from cache or file.")
-    ret = pd.read_parquet(PRIZE_PATH)
-    logger.info(ret.head())
-
-    return ret
+    return pd.read_parquet(PRIZE_PATH)
