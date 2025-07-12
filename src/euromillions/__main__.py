@@ -24,9 +24,8 @@ def stats_command():
         print("No draws found.")
         return
 
-    draws_df["date"] = pd.to_datetime(draws_df["date"])
-    latest = draws_df["date"].max()
-    earliest = draws_df["date"].min()
+    latest = pd.to_datetime(draws_df["date"]).max()
+    earliest = pd.to_datetime(draws_df["date"]).min()
     total = len(draws_df)
     winners = draws_df["has_winner"].sum()
     prize_tiers = pd.json_normalize(draws_df["prizes"]).dropna().shape[0]

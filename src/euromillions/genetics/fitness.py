@@ -1,45 +1,24 @@
-from typing import List, Tuple
 import pandas as pd
-from collections import defaultdict
 
-Ticket = Tuple[List[int], List[int]]  # ([main numbers], [stars])
 
-def evaluate_ticket_set(
-        tickets: List[Ticket],
-        draws_df: pd.DataFrame,
-        prizes_df: pd.DataFrame
-) -> float:
-    """
-    Evaluate a set of tickets against historical draws.
-    Returns total profit or expected return.
-    """
-    total_payout = 0.0
-    total_spent = len(tickets) * 2.50 * len(draws_df)  # £2.50 per ticket per draw
+def evaluate_ticket_set(tickets: list[tuple[list[int], list[int]]], draws_df: pd.DataFrame, prizes_df: pd.DataFrame) -> float:
+    score = 0.0
 
-    for _, draw in draws_df.iterrows():
-        draw_numbers = set(draw["numbers"])
-        draw_stars = set(draw["stars"])
-        draw_id = draw["draw_id"]
+    for _, row in draws_df.iterrows():
+        draw_numbers = set(row["numbers"])
+        draw_stars = set(row["stars"])
 
-        # Get corresponding prize tier list
-        prize_row = prizes_df.loc[prizes_df["draw_id"] == draw_id]
-        if prize_row.empty:
-            continue
+        for ticket_numbers, ticket_stars in tickets:  # ✅ FIXED unpack here
+            matched_numbers = len(draw_numbers & set(ticket_numbers))
+            matched_stars = len(draw_stars & set(ticket_stars))
 
-        try:
-            prize_tiers = prize_row.iloc[0]["prizes"]
-        except (KeyError, IndexError):
-            continue
+            # Look up matching prize
+            for prize in row["prizes"]:
+                if (
+                        prize["matched_numbers"] == matched_numbers
+                        and prize["matched_stars"] == matched_stars
+                ):
+                    score += prize.get("prize_gbp", 0.0)
 
-        for ticket in tickets:
-            main, stars = ticket
-            matched_main = len(set(main) & draw_numbers)
-            matched_stars = len(set(stars) & draw_stars)
-
-            for tier in prize_tiers:
-                if (tier["matched_numbers"], tier["matched_stars"]) == (matched_main, matched_stars):
-                    total_payout += float(tier.get("prize", 0.0))
-                    break
-
-    net_return = total_payout - total_spent
-    return net_return
+    total_cost = len(tickets) * 2.5 * len(draws_df)
+    return score - total_cost
