@@ -1,93 +1,101 @@
+import logging
 import random
-from typing import List, Tuple
+import sys
+from euromillions.euromillions_loader import load_draws_df, load_prizes_df
+from euromillions.generators.strategy_registry import (
+    get_all_strategy_variants,
+    generate_tickets_from_variants,
+)
+from euromillions.genetics.fitness import evaluate_ticket_set
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
 
-from euromillions.analysis.loader import load_draws_df, load_prizes_df
-from euromillions.analysis.fitness import evaluate_ticket_set
-from euromillions.generators.strategy_registry import strategy_registry, generate_tickets_from_variants
+POPULATION_SIZE = 50
+GENERATIONS = 100
+MUTATION_RATE = 0.1
+ELITE_SIZE = 10
+MAX_TICKETS = 7
 
-Genome = List[int]
-Population = List[Genome]
 
-def select_parents(population: Population, scores: List[float]) -> Tuple[Genome, Genome]:
-    return random.choices(population, weights=scores, k=2)
+def initialize_population(num_strategies: int, population_size: int) -> list[list[int]]:
+    logger.info(f"Initializing population with {population_size} chromosomes, each with {num_strategies} genes.")
+    population = []
+    for _ in range(population_size):
+        chromosome = [random.choice([0, 1]) for _ in range(num_strategies)]
+        population.append(chromosome)
+    logger.info("Population initialization complete.")
+    return population
 
-def crossover(parent1: Genome, parent2: Genome) -> Genome:
-    point = random.randint(1, len(parent1) - 2)
-    child = parent1[:point] + parent2[point:]
-    print(f"Crossover at {point}: {parent1} + {parent2} => {child}")
-    return child
 
-def mutate(genome: Genome, rate: float) -> Genome:
-    mutated = genome[:]
-    mutated_flag = False
+def mutate(chromosome: list[int]) -> list[int]:
+    mutated = chromosome[:]
+    mutation_occurred = False
     for i in range(len(mutated)):
-        if random.random() < rate:
+        if random.random() < MUTATION_RATE:
             mutated[i] = 1 - mutated[i]
-            mutated_flag = True
-            print(f"Mutation at gene {i}: flipped to {mutated[i]}")
-    if not mutated_flag:
-        print("No mutation occurred on this genome.")
+            logger.debug(f"Mutation: gene {i} flipped in {chromosome} → {mutated}")
+            mutation_occurred = True
+    if mutation_occurred:
+        logger.info(f"Chromosome mutated: {chromosome} → {mutated}")
+    else:
+        logger.debug(f"No mutation in {chromosome}")
     return mutated
 
-def run_evolution(
-        generations: int = 200,
-        population_size: int = 50,
-        mutation_rate: float = 0.05,
-        max_active: int = 5,
-        max_tickets: int = 7,
-        variant_count: int = 500,
-):
+
+def crossover(parent1: list[int], parent2: list[int]) -> list[int]:
+    if len(parent1) != len(parent2):
+        raise ValueError("Parents must be the same length")
+    point = random.randint(1, len(parent1) - 1)
+    child = parent1[:point] + parent2[point:]
+    logger.info(f"Crossover at point {point}: {parent1} x {parent2} → {child}")
+    return child
+
+
+def run_evolution():
+    logger.info("Starting evolutionary algorithm.")
     draws_df = load_draws_df()
     prizes_df = load_prizes_df()
-    variants = strategy_registry[:variant_count]
-    genome_length = len(variants)
 
-    def evaluate(chromosome: Genome) -> float:
-        try:
-            tickets = generate_tickets_from_variants(
-                chromosome,
-                variants,
-                draws_df,
-                max_tickets
-            )
-            return evaluate_ticket_set(tickets, draws_df, prizes_df)
-        except Exception as e:
-            print(f"Error evaluating chromosome: {e}")
-            return float('-inf')
+    variants = get_all_strategy_variants()
+    num_strategies = len(variants)
 
-    population = [
-        [1 if i < max_active else 0 for i in random.sample(range(genome_length), genome_length)]
-        for _ in range(population_size)
-    ]
+    population = initialize_population(num_strategies, POPULATION_SIZE)
 
-    best_overall = (None, float('-inf'))
-    for generation in range(generations):
-        print(f"\nGeneration {generation + 1}")
+    for generation in range(GENERATIONS):
+        logger.info(f"\nGeneration {generation + 1}")
+        fitness_scores = []
 
-        scored = [(chromosome, evaluate(chromosome)) for chromosome in population]
-        scored.sort(key=lambda x: x[1], reverse=True)
+        for chromosome in population:
+            tickets = generate_tickets_from_variants(chromosome, variants, draws_df, MAX_TICKETS)
+            fitness = evaluate_ticket_set(tickets, draws_df, prizes_df)
+            fitness_scores.append((fitness, chromosome))
+            logger.info(f"Fitness: {fitness:.2f} for chromosome {chromosome}")
 
-        for _, score in scored:
-            print(f"Fitness: {score:.2f}")
+        fitness_scores.sort(reverse=True, key=lambda x: x[0])
+        elites = [chrom for _, chrom in fitness_scores[:ELITE_SIZE]]
+        logger.info(f"Selected {ELITE_SIZE} elites for next generation.")
 
-        if scored[0][1] > best_overall[1]:
-            best_overall = scored[0]
+        next_generation = elites[:]
+        seen = set(tuple(chrom) for chrom in elites)
 
-        new_population = [c for c, _ in scored[:5]]
-        existing = set(tuple(c) for c in new_population)
-
-        while len(new_population) < population_size:
-            parent1, parent2 = select_parents(population, [max(f, 0.1) for _, f in scored])
+        while len(next_generation) < POPULATION_SIZE:
+            parent1 = random.choice(elites)
+            parent2 = random.choice(elites)
+            if parent1 == parent2:
+                continue
             child = crossover(parent1, parent2)
-            child = mutate(child, mutation_rate)
-            child_key = tuple(child)
-            if child_key not in existing:
-                new_population.append(child)
-                existing.add(child_key)
+            child = mutate(child)
+            t_child = tuple(child)
+            if t_child not in seen:
+                next_generation.append(child)
+                seen.add(t_child)
+                logger.info(f"Added new child to next generation: {child}")
 
-        population = new_population
+        logger.info(f"Generation {generation + 1} complete. Population size: {len(next_generation)}")
+        population = next_generation
 
-    best_chromosome, best_score = best_overall
-    print("\nBest Chromosome:")
-    print(best_chromosome)
-    print(f"Best Fitness: {best_score:.2f}")
+    logger.info("Evolutionary algorithm finished.")

@@ -19,7 +19,7 @@ clean:
 zip:
 	rm -f *.zip
 	zip -r euromillions-ga-src.zip src Makefile pyproject.toml \
-		-x '**/__pycache__/*' '**/*.pyc' '**/.DS_Store' '**/.mypy_cache/*' '**/.pytest_cache/*' 'Makefile'
+		-x '**/__pycache__/*' '**/*.pyc' '**/.DS_Store' '**/.mypy_cache/*' '**/.pytest_cache/*' 'Makefile' '**/.venv/*' 'dist/*' 'build/*' '*.egg-info/*'
 
 unzip:
 	@echo "Usage: make unzip FILE=name-of-zip.zip"
