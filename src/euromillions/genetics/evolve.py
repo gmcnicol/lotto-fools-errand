@@ -1,9 +1,9 @@
 import random
 from typing import List, Tuple
 
-from euromillions.euromillions_loader import load_draws_df, load_prizes_df
-from euromillions.genetics.fitness import evaluate_ticket_set
-from euromillions.generators.ticket_generator import generate_tickets_from_variants
+from euromillions.analysis.loader import load_draws_df, load_prizes_df
+from euromillions.analysis.fitness import evaluate_ticket_set
+from euromillions.generators.strategy_registry import strategy_registry, generate_tickets_from_variants
 
 Genome = List[int]
 Population = List[Genome]
@@ -47,15 +47,14 @@ def run_evolution(
             tickets = generate_tickets_from_variants(
                 chromosome,
                 variants,
-                draws_df=draws_df,
-                max_tickets=max_tickets
+                draws_df,
+                max_tickets
             )
             return evaluate_ticket_set(tickets, draws_df, prizes_df)
         except Exception as e:
             print(f"Error evaluating chromosome: {e}")
             return float('-inf')
 
-    # Initialize random population
     population = [
         [1 if i < max_active else 0 for i in random.sample(range(genome_length), genome_length)]
         for _ in range(population_size)
@@ -74,7 +73,6 @@ def run_evolution(
         if scored[0][1] > best_overall[1]:
             best_overall = scored[0]
 
-        # Elitism: carry over top N
         new_population = [c for c, _ in scored[:5]]
         existing = set(tuple(c) for c in new_population)
 
