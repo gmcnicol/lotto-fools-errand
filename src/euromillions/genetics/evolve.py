@@ -1,5 +1,5 @@
-
 import random
+from typing import Optional
 
 from euromillions.euromillions_loader import load_draws_df, load_prizes_df
 from euromillions.generators.strategy_registry import (
@@ -8,14 +8,20 @@ from euromillions.generators.strategy_registry import (
 )
 from euromillions.genetics.fitness import evaluate_ticket_set
 
-# GA parameters
-POPULATION_SIZE = 50
-ELITE_SIZE = 10
-MAX_TICKETS = 7
+# ─────────────────────────────────────────────────────────────
+# GA PARAMETERS (tweak at will)
+POPULATION_SIZE    = 65
+ELITE_SIZE         = 15
+MAX_TICKETS        = 7
 
-MUTATION_RATE = 0.1
-MAX_GENERATIONS = 10_000
-CONVERGENCE_WINDOW = 500
+MUTATION_RATE      = 0.09
+MAX_GENERATIONS    = 10_000
+CONVERGENCE_WINDOW = 200
+
+# SLIDING WINDOW: how many of the most‐recent draws to train on each step.
+#   None → use all draws from the start up to the current one.
+SLIDING_WINDOW: Optional[int] = 11
+# ─────────────────────────────────────────────────────────────
 
 
 def initialize_population(num_strategies: int, population_size: int) -> list[list[int]]:
@@ -39,77 +45,85 @@ def crossover(parent1: list[int], parent2: list[int]) -> list[int]:
 
 
 def run_evolution():
-    draws_df = load_draws_df()
+    draws_df  = load_draws_df()
     prizes_df = load_prizes_df()
-    variants = get_all_strategy_variants()
+    variants  = get_all_strategy_variants()
     num_strategies = len(variants)
 
-    # Start with a random population
+    # initial random pop
     population = initialize_population(num_strategies, POPULATION_SIZE)
 
-    # Step sequentially through each historical draw
+    # step through each historical draw in turn
     for draw_idx, draw_row in draws_df.iterrows():
-        current_draw_df = draws_df.iloc[[draw_idx]]
-        print(f"\n=== Draw {draw_idx + 1}/{len(draws_df)} ({draw_row['date']}) ===")
+        # build the window of draws to train on
+        if SLIDING_WINDOW is None:
+            window_start = 0
+        else:
+            window_start = max(0, draw_idx - SLIDING_WINDOW + 1)
 
-        best_fitness = float("-inf")
-        no_improve = 0
+        window_df = draws_df.iloc[window_start : draw_idx + 1]
+        print(f"\n=== Draw {draw_idx + 1}/{len(draws_df)} "
+              f"({draw_row['date']}) → using window of {len(window_df)} draws ===")
+
+        best_fitness    = float("-inf")
         best_chromosome = None
+        no_improve      = 0
 
         for gen in range(1, MAX_GENERATIONS + 1):
-            # Evaluate all chromosomes on this single draw
-            scored = []
+            # evaluate entire population on this window
+            scored: list[tuple[float, list[int]]] = []
             for chrom in population:
                 tickets = generate_tickets_from_variants(
-                    chrom, variants, current_draw_df, MAX_TICKETS
+                    chrom, variants, window_df, MAX_TICKETS
                 )
-                fitness = evaluate_ticket_set(tickets, current_draw_df, prizes_df)
+                fitness = evaluate_ticket_set(tickets, window_df, prizes_df)
                 scored.append((fitness, chrom))
 
-            # Sort descending by fitness
+            # pick the current-gen best
             scored.sort(key=lambda x: x[0], reverse=True)
             current_best, current_chrom = scored[0]
 
-            # Check for improvement
+            # improvement?
             if current_best > best_fitness:
-                best_fitness = current_best
+                best_fitness    = current_best
                 best_chromosome = current_chrom
-                no_improve = 0
+                no_improve      = 0
             else:
                 no_improve += 1
 
-            # Periodic status
+            # status every 1,000 gens
             if gen % 1000 == 0:
                 print(f" Gen {gen:5d}: best fitness so far = {best_fitness:.2f}")
 
-            # Convergence check
+            # convergence check
             if no_improve >= CONVERGENCE_WINDOW:
                 print(
-                    f" Converged after {gen} generations "
-                    f"(no improvement in last {CONVERGENCE_WINDOW}), "
+                    f" Converged after {gen} gens "
+                    f"(no improve in last {CONVERGENCE_WINDOW}), "
                     f"best fitness = {best_fitness:.2f}"
                 )
                 break
 
-            # Build next generation: keep elites + crossover+mutate
+            # build next generation: keep ELITE_SIZE, then fill by crossover+mutation
             elites = [chrom for _, chrom in scored[:ELITE_SIZE]]
             next_pop = elites.copy()
             while len(next_pop) < POPULATION_SIZE:
                 p1, p2 = random.sample(elites, 2)
-                child = mutate(crossover(p1, p2))
+                child  = mutate(crossover(p1, p2))
                 next_pop.append(child)
+
             population = next_pop
 
-        # Prepare for next draw: carry forward only the elites
+        # carry forward only the elites into the next draw’s GA
         elites = [chrom for _, chrom in scored[:ELITE_SIZE]]
         population = elites.copy()
         while len(population) < POPULATION_SIZE:
             population.append(mutate(random.choice(elites)))
 
-    # After all draws, best_chromosome is from the final draw
+    # end of all draws → best_chromosome is from the last draw’s GA
     print("\n=== Final Best Chromosome ===")
-    tickets = generate_tickets_from_variants(
+    final_tickets = generate_tickets_from_variants(
         best_chromosome, variants, draws_df, MAX_TICKETS
     )
-    for idx, (nums, stars) in enumerate(tickets, start=1):
+    for idx, (nums, stars) in enumerate(final_tickets, start=1):
         print(f"Ticket {idx}: numbers={nums}, stars={stars}")
