@@ -1,5 +1,6 @@
-# src/euromillions/generators/strategies/__init__.py
+# expose all strategies in this package
+from .frequency_weighted import frequency_weighted_generator
 
-from euromillions.generators.strategies import (
-    modulo_increment,
-)
+__all__ = [
+    "frequency_weighted_generator",
+]

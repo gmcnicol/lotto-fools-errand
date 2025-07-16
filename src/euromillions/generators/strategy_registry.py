@@ -1,36 +1,39 @@
+"""
+Collects all available ticket‐generation strategies.
+"""
+
+from typing import Callable, List, Tuple
 import pandas as pd
-from typing import Callable
 
-from euromillions.generators.strategies.modulo_increment import generate_modulo_increment
+# import your new strategies
+from euromillions.generators.strategies import frequency_weighted_generator
 
+# map names to callables
+STRATEGIES: dict[str, Callable[[pd.DataFrame], Tuple[List[int], List[int]]]] = {
+    "frequency_weighted": frequency_weighted_generator,
+}
 
-def get_all_strategy_variants():
-    variants = []
-    for start in range(1, 51):  # start: 1 to 50
-        for increment in range(1, 11):  # increment: 1 to 10
-            variants.append((generate_modulo_increment, {'start': start, 'increment': increment}))
-    return variants
-
+def get_all_strategy_variants() -> List[Callable[[pd.DataFrame], Tuple[List[int], List[int]]]]:
+    """
+    Return list of all strategy functions, in a fixed order.
+    """
+    return list(STRATEGIES.values())
 
 def generate_tickets_from_variants(
-        chromosome: list[int],
-        variants: list[tuple[Callable, dict]],
-        draws_df: pd.DataFrame,
+        chromosome:  list[int],
+        variants:    List[Callable[[pd.DataFrame], Tuple[List[int], List[int]]]],
+        draws_df:    pd.DataFrame,
         max_tickets: int
-) -> list[tuple[list[int], list[int]]]:
+) -> List[Tuple[List[int], List[int]]]:
     """
-    Uses active strategy variants (selected by chromosome) to generate up to `max_tickets` tickets.
-
-    Returns a list of tickets: (numbers, stars)
+    For each gene==1 in `chromosome`, call the corresponding strategy
+    (passing it the full `draws_df`), collect up to `max_tickets`.
     """
-    active = [i for i, bit in enumerate(chromosome) if bit == 1]
-    tickets = []
-
-    for idx in active:
-        strategy_func, kwargs = variants[idx]
-        generated = strategy_func(draws_df=draws_df, **kwargs)
-        tickets.extend(generated)
-        if len(tickets) >= max_tickets:
-            break
-
-    return tickets[:max_tickets]
+    tickets: List[Tuple[List[int], List[int]]] = []
+    for gene, strat in zip(chromosome, variants):
+        if gene:
+            nums, stars = strat(draws_df)  # uses default num_numbers=5,num_stars=2
+            tickets.append((nums, stars))
+            if len(tickets) >= max_tickets:
+                break
+    return tickets
