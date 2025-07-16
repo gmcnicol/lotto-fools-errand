@@ -11,12 +11,12 @@ from euromillions.genetics.fitness import evaluate_ticket_set
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GA PARAMETERS
-POPULATION_SIZE    = 50       # number of chromosomes
+POPULATION_SIZE    = 60       # number of chromosomes
 MAX_TICKETS        = 7        # tickets per chromosome
-MUTATION_RATE      = 0.1      # per-gene flip probability
-MAX_GENERATIONS    = 10_000   # max iters per draw‐step
-CONVERGENCE_WINDOW = 500      # stop if no improvement in this many gens
-SLIDING_WINDOW     = 15        # None ⇒ use all past; int ⇒ only last W draws
+MUTATION_RATE      = 0.11      # per-gene flip probability
+MAX_GENERATIONS    = 100_000   # max iters per draw‐step
+CONVERGENCE_WINDOW = 1000      # stop if no improvement in this many gens
+SLIDING_WINDOW     = 20        # None ⇒ use all past; int ⇒ only last W draws
 # ─────────────────────────────────────────────────────────────────────────────
 
 def initialize_population(length: int, size: int) -> list[list[int]]:
@@ -121,13 +121,28 @@ def run_evolution():
             best_global_score = best_local_score
             best_global_chrom = best_local_chrom
 
-    # final recommendation
+    # ─────────────────────────────────────────────────────────────────────────
+    # Final output
+    # ─────────────────────────────────────────────────────────────────────────
     print("\n=== Final Recommended Tickets ===")
-    final_tix = generate_tickets_from_variants(
+    tickets = generate_tickets_from_variants(
         best_global_chrom, variants, draws_df, MAX_TICKETS
     )
-    for i, (nums, stars) in enumerate(final_tix, start=1):
-        print(f"Ticket {i}: numbers={nums}, stars={stars}")
+
+    # normalize, sort, zero-pad
+    formatted: list[tuple[list[str], list[str]]] = []
+    for nums, stars in tickets:
+        nums_int  = sorted(int(n) for n in nums)
+        stars_int = sorted(int(s) for s in stars)
+        nums_str  = [f"{n:02d}" for n in nums_int]
+        stars_str = [f"{s:02d}" for s in stars_int]
+        formatted.append((nums_str, stars_str))
+
+    # print aligned table
+    print(f"{'Ticket':<6} | {'Numbers':<17} | {'Stars'}")
+    print(f"{'-'*6}-+-{'-'*17}-+-{'-'*5}")
+    for idx, (nstrs, sstrs) in enumerate(formatted, start=1):
+        print(f"{idx:<6} | {' '.join(nstrs):<17} | {' '.join(sstrs)}")
 
 if __name__ == "__main__":
     run_evolution()
