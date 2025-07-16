@@ -1,11 +1,24 @@
-from typing import Callable, Dict, List, Tuple
-import random
+def generate_tickets_from_variants(
+        chromosome: list[int],
+        variants: list[callable],
+        draws_df,        # pandas.DataFrame of past draws (or sliding window)
+        max_tickets: int
+) -> list[tuple[list[int], list[int]]]:
+    """
+    Given a binary chromosome and a list of strategy fns (variants),
+    run each active strategy to produce up to max_tickets total.
+    """
+    active = [fn for bit, fn in zip(chromosome, variants) if bit]
+    tickets: list[tuple[list[int], list[int]]] = []
+    if not active:
+        return tickets
 
-def generate_tickets_from_variants(draws_df, selected_variants: List[Tuple[Callable, Dict]], max_tickets: int = 7):
-    all_tickets = []
-    for fn, params in selected_variants:
-        # Explicitly pass draws_df to generators that expect it
-        tickets = fn(draws_df=draws_df, **params)
-        all_tickets.extend(tickets)
-    random.shuffle(all_tickets)
-    return all_tickets[:max_tickets]
+    per = max_tickets // len(active)
+    extra = max_tickets % len(active)
+
+    for idx, gen_fn in enumerate(active):
+        cnt = per + (1 if idx < extra else 0)
+        if cnt > 0:
+            tickets.extend(gen_fn(draws_df, cnt))
+
+    return tickets

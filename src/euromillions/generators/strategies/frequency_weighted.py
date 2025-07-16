@@ -1,44 +1,47 @@
-import pandas as pd
 import random
-from typing import Tuple, List
+from collections import Counter
+import pandas as pd
 
-def frequency_weighted_generator(
-        draws_df: pd.DataFrame,
-        num_numbers: int = 5,
-        num_stars:   int = 2
-) -> Tuple[List[int], List[int]]:
-    """
-    Pick `num_numbers` out of 1–50 and `num_stars` out of 1–12,
-    weighted by how often each has appeared in draws_df.
-    """
+WINDOW_SIZES = [5, 15, 30]
+EXPONENTS    = [0.5, 1.0, 2.0]
 
-    # flatten past numbers & stars into lists
-    all_nums  = [n for row in draws_df["numbers"] for n in map(int, row)]
-    all_stars = [s for row in draws_df["stars"]   for s in map(int, row)]
+def frequency_weighted_generator_factory(window_size: int, exponent: float):
+    def generator(draws_df: pd.DataFrame, num_tickets: int):
+        df = draws_df.iloc[-window_size:] if window_size and len(draws_df) > window_size else draws_df
 
-    # count occurrences
-    num_counts  = pd.Series(all_nums).value_counts().to_dict()
-    star_counts = pd.Series(all_stars).value_counts().to_dict()
+        num_counts, star_counts = Counter(), Counter()
+        for _, row in df.iterrows():
+            for n in row["numbers"]:
+                num_counts[int(n)] += 1
+            for s in row["stars"]:
+                star_counts[int(s)] += 1
 
-    # build pools and weights (+1 so nothing has zero weight)
-    num_pool     = list(range(1, 51))
-    num_weights  = [num_counts.get(i, 0) + 1 for i in num_pool]
+        numbers = list(range(1, 51))
+        stars   = list(range(1, 13))
 
-    star_pool    = list(range(1, 13))
-    star_weights = [star_counts.get(i, 0) + 1 for i in star_pool]
+        num_weights  = [(num_counts[n] ** exponent) + 1 for n in numbers]
+        star_weights = [(star_counts[s] ** exponent) + 1 for s in stars]
 
-    def weighted_sample(pool, weights, k):
-        pool, weights = pool[:], weights[:]
-        picks: List[int] = []
-        for _ in range(k):
-            choice = random.choices(pool, weights=weights, k=1)[0]
-            idx = pool.index(choice)
-            picks.append(choice)
-            pool.pop(idx)
-            weights.pop(idx)
-        return sorted(picks)
+        tickets = []
+        for _ in range(num_tickets):
+            picked_nums = set()
+            while len(picked_nums) < 5:
+                picked_nums.add(random.choices(numbers, weights=num_weights, k=1)[0])
+            picked_stars = set()
+            while len(picked_stars) < 2:
+                picked_stars.add(random.choices(stars, weights=star_weights, k=1)[0])
 
-    numbers = weighted_sample(num_pool, num_weights, num_numbers)
-    stars   = weighted_sample(star_pool, star_weights, num_stars)
+            tickets.append((sorted(picked_nums), sorted(picked_stars)))
 
-    return numbers, stars
+        return tickets
+
+    generator.__name__ = f"freq_w{window_size}_exp{exponent}"
+    return generator
+
+def get_variants() -> list[callable]:
+    variants = []
+    for w in WINDOW_SIZES:
+        for e in EXPONENTS:
+            variants.append(frequency_weighted_generator_factory(w, e))
+    print(f"Generated {len(variants)} frequency-weighted variants with window sizes {WINDOW_SIZES} and exponents {EXPONENTS}.")
+    return variants
