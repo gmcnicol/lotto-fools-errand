@@ -2,7 +2,6 @@
 
 import random
 from typing import List, Tuple
-
 import pandas as pd
 
 from euromillions.euromillions_loader import load_draws_df, load_prizes_df
@@ -14,14 +13,14 @@ from euromillions.genetics.fitness import evaluate_ticket_set
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GA PARAMETERS
-POPULATION_SIZE    = 50    # number of chromosomes
-MAX_TICKETS        = 7     # tickets per chromosome
-MUTATION_RATE      = 0.1   # per-gene flip probability
-MAX_GENERATIONS    = 100_000  # max iters per draw‐step
+POPULATION_SIZE    = 70      # number of chromosomes
+MAX_TICKETS        = 7       # tickets per chromosome
+MUTATION_RATE      = 0.1     # per-gene flip probability
+MAX_GENERATIONS    = 100_000 # max iters per draw‐step
 CONVERGENCE_WINDOW = 1000    # stop if no improvement in this many gens
-SLIDING_WINDOW     = 5       # None ⇒ use all past; int ⇒ only last W draws
+SLIDING_WINDOW     = 10      # None ⇒ use all past; int ⇒ only last W draws
 # ─────────────────────────────────────────────────────────────────────────────
-grand_total_prize = 0.0
+
 Chromosome = List[int]
 Ticket     = Tuple[List[int], List[int]]
 Formatted  = Tuple[List[str], List[str]]
@@ -54,7 +53,6 @@ def score_chromosome(
         prizes_df: pd.DataFrame
 ) -> float:
     tickets = generate_tickets_from_variants(chrom, variants, window_df, MAX_TICKETS)
-    # Normalize by window length so different window sizes remain comparable
     raw_score = evaluate_ticket_set(tickets, window_df, prizes_df)
     return raw_score / len(window_df)
 
@@ -78,9 +76,18 @@ def evolve_window(
 
         population.append(child)
         scores.append(child_score)
-        paired = sorted(zip(scores, population),
-                        key=lambda x: x[0], reverse=True)[:POPULATION_SIZE]
-        scores, population = map(list, zip(*paired))
+
+        # truncate back to POPULATION_SIZE
+        paired = sorted(
+            zip(scores, population),
+            key=lambda x: x[0],
+            reverse=True
+        )[:POPULATION_SIZE]
+
+        # unzip back into two lists
+        scores_tuple, population_tuple = zip(*paired)
+        scores = list(scores_tuple)
+        population = list(population_tuple)
 
         current_best_score = scores[0]
         if current_best_score > best_score:
@@ -92,6 +99,7 @@ def evolve_window(
 
         if no_improve >= CONVERGENCE_WINDOW:
             break
+
     return population, scores, best_chrom, best_score
 
 
@@ -102,8 +110,6 @@ def report_draw(
         variants: List,
         window_df: pd.DataFrame
 ):
-    global grand_total_prize
-
     # 1) Show the actual draw
     draw_nums = sorted(int(n) for n in draw_row["numbers"])
     draw_strs = sorted(int(s) for s in draw_row["stars"])
@@ -116,7 +122,7 @@ def report_draw(
 
     # 3) Deduplicate
     seen = set()
-    unique: List[Ticket] = []
+    unique = []
     for nums, stars in raw_tickets:
         key = (
             tuple(sorted(int(x) for x in nums)),
@@ -128,17 +134,15 @@ def report_draw(
         if len(unique) >= MAX_TICKETS:
             break
 
-    # 4) Highlight and print each, tally prizes
+    # 4) Highlight & tally prizes
     total_prize = 0.0
     for idx, (nums, stars) in enumerate(unique, start=1):
-        nums_i   = sorted(int(n) for n in nums)
-        stars_i  = sorted(int(s) for s in stars)
+        nums_i  = sorted(int(n) for n in nums)
+        stars_i = sorted(int(s) for s in stars)
 
-        # highlight matches
         hn = " ".join(f"*{n:02d}*" if n in draw_nums else f" {n:02d} " for n in nums_i)
         hs = " ".join(f"*{s:02d}*" if s in draw_strs else f" {s:02d} " for s in stars_i)
 
-        # lookup actual prize
         matched_n = len(set(nums_i) & set(draw_nums))
         matched_s = len(set(stars_i) & set(draw_strs))
         prize_info = next(
@@ -148,21 +152,21 @@ def report_draw(
         )
         prize = prize_info["prize"] if prize_info else 0.0
         total_prize += prize
-        grand_total_prize += prize
 
         print(f"Ticket {idx}: {hn} ({hs}) → €{prize:,.2f}")
 
-    print(f"--- Total won this draw: €{total_prize:,.2f} Total so far: €{grand_total_prize:,.2f} ---")
+    print(f"--- Total won this draw: €{total_prize:,.2f}")
 
 
 def format_tickets(raw_tickets: List[Ticket]) -> List[Formatted]:
-    formatted: List[Formatted] = []
+    formatted = []
     for nums, stars in raw_tickets:
-        nums_i = sorted(int(n) for n in nums)
+        nums_i  = sorted(int(n) for n in nums)
         stars_i = sorted(int(s) for s in stars)
-        nums_s = [f"{n:02d}" for n in nums_i]
-        stars_s = [f"{s:02d}" for s in stars_i]
-        formatted.append((nums_s, stars_s))
+        formatted.append((
+            [f"{n:02d}" for n in nums_i],
+            [f"{s:02d}" for s in stars_i]
+        ))
     return formatted
 
 
@@ -171,7 +175,7 @@ def dedupe_and_limit(
         limit: int = MAX_TICKETS
 ) -> List[Ticket]:
     seen = set()
-    out: List[Ticket] = []
+    out = []
     for nums, stars in raw:
         key = (
             tuple(sorted(int(x) for x in nums)),
@@ -208,10 +212,10 @@ def run_evolution():
 
     draws_len = len(draws_df)
     for draw_idx, draw_row in draws_df.iterrows():
-        # skip until warm‑up
         idx_plus_1 = draw_idx + 1
         if SLIDING_WINDOW is not None and idx_plus_1 < SLIDING_WINDOW:
             continue
+
         window_start = 0 if SLIDING_WINDOW is None else max(0, draw_idx - SLIDING_WINDOW + 1)
         window_df    = draws_df.iloc[window_start: idx_plus_1]
         window_len   = len(window_df)
@@ -239,8 +243,8 @@ def run_evolution():
         if best_local_score > best_global_score:
             best_global_score = best_local_score
             best_global_chrom = best_local_chrom
+
     # Final recommendation for next draw
-    # ─────────────────────────────────────────────────────────────────────────
     raw_final = generate_tickets_from_variants(
         best_global_chrom, variants, draws_df, MAX_TICKETS
     )
