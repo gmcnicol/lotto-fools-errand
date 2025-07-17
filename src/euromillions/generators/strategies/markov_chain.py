@@ -7,8 +7,8 @@ import pandas as pd
 
 # A single ticket: (five numbers, two stars)
 Ticket = Tuple[List[int], List[int]]
-# Signature for one‑ticket generator
-Generator = Callable[[pd.DataFrame, int], Ticket]
+# Signature for ticket generators matching the other strategies
+Generator = Callable[[pd.DataFrame, int], List[Ticket]]
 
 
 def markov_chain_generator_factory(
@@ -28,12 +28,16 @@ def markov_chain_generator_factory(
 
     for W in window_sizes:
         def make_generator(window: int):
-            def generator(history: pd.DataFrame, max_tickets: int) -> Ticket:
+            def generator(history: pd.DataFrame, max_tickets: int) -> List[Ticket]:
+                """Generate up to ``max_tickets`` using a simple Markov chain."""
+                tickets: List[Ticket] = []
                 # Need at least two draws to build transitions
                 if len(history) < 2:
-                    nums = random.sample(range(1, 51), 5)
-                    stars = random.sample(range(1, 13), 2)
-                    return nums, stars
+                    for _ in range(max_tickets):
+                        nums = random.sample(range(1, 51), 5)
+                        stars = random.sample(range(1, 13), 2)
+                        tickets.append((nums, stars))
+                    return tickets
 
                 # Only last window+1 draws
                 df_w = history if len(history) <= window + 1 else history.iloc[-(window + 1):]
@@ -46,29 +50,30 @@ def markov_chain_generator_factory(
                         for y in curr:
                             trans[int(x)][int(y)] += 1
 
-                # Seed with one number from the very last draw
                 last_nums = history.iloc[-1]["numbers"]
-                seed = random.choice(last_nums)
-                picked = [int(seed)]
-                pool = set(range(1, 51)) - set(picked)
+                for _ in range(max_tickets):
+                    seed = random.choice(last_nums)
+                    picked = [int(seed)]
+                    pool = set(range(1, 51)) - set(picked)
 
-                # Walk the chain to pick 4 more numbers
-                for _ in range(4):
-                    candidates = list(pool)
-                    weights = [
-                        trans[picked[-1]].get(num, 0) + pseudocount
-                        for num in candidates
-                    ]
-                    if sum(weights) <= 0:
-                        nxt = random.choice(candidates)
-                    else:
-                        nxt = random.choices(candidates, weights, k=1)[0]
-                    picked.append(nxt)
-                    pool.remove(nxt)
+                    # Walk the chain to pick 4 more numbers
+                    for _ in range(4):
+                        candidates = list(pool)
+                        weights = [
+                            trans[picked[-1]].get(num, 0) + pseudocount
+                            for num in candidates
+                        ]
+                        if sum(weights) <= 0:
+                            nxt = random.choice(candidates)
+                        else:
+                            nxt = random.choices(candidates, weights, k=1)[0]
+                        picked.append(nxt)
+                        pool.remove(nxt)
 
-                # Stars remain uniform for now
-                stars = random.sample(range(1, 13), 2)
-                return picked, stars
+                    stars = random.sample(range(1, 13), 2)
+                    tickets.append((picked, stars))
+
+                return tickets
 
             generator.__name__ = f"markov_chain_W{window}"
             return generator
