@@ -41,5 +41,10 @@ def evaluate_chromosome(chromosome: Chromosome) -> float:
     if not selected_variants:
         return 0.0
 
-    tickets = generate_tickets_from_variants(draws_df, selected_variants, max_tickets=7)
+    tickets = generate_tickets_from_variants(
+        chromosome,
+        selected_variants,
+        draws_df,
+        max_tickets=7,
+    )
     return evaluate_ticket_set(tickets, draws_df, prizes_df)

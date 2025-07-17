@@ -11,7 +11,7 @@ generate:
 	uv run -- python -m euromillions generate
 
 generate-with-redirect:
-	-uv run -- python -m euromillions generate >out.txt 2>&1 || true≤
+	-uv run -- python -m euromillions generate >out.txt 2>&1 || true
 stats:
 	uv run -- python -m euromillions stats
 

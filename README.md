@@ -18,47 +18,27 @@ A small Python project that uses a Genetic Algorithm (GA) to “evolve” sets o
 - **Define strategies** (e.g. modulo‐increment, random patterns) with configurable parameters  
 - **Automatically enumerate** all strategy/parameter variants  
 - **GA core engine** with elitism, crossover, mutation, convergence criteria  
-- **Command‐line interface** via `typer`:
-
-  ```bash
-  # Fetch historical draws (first run only)
-  make fetch-draws
-
-  # Run GA evolution and print best chromosome + suggested tickets
-  make generate
-
-  # Show basic stats on the draws database
-  make stats
-  ```
+- **Command‐line interface** 
 
 ---
 
 ## Installation
 
-1. Clone or extract the project:
    ```bash
-   git clone <repo-url> euromillions-ga
-   cd euromillions-ga
-   ```
-2. Create and activate a virtual environment:
-   ```bash
-   uv venv
-   source .venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   uv pip install -r requirements.txt
+   git clone git@github.com:gmcnicol/lotto-fools-errand.git euromillions
+   cd euromillions
+   make clean install
    ```
 
 ---
 
 ## Usage
 
-1. **Fetch data** (only needed once or to refresh):
+1. **Fetch data** (needed at least once, or after every draw happens in the real world):
    ```bash
    make fetch-draws
    ```
-2. **Run evolution** (may take several minutes):
+2. **Run evolution** (will take several minutes but will give you a running log):
    ```bash
    make generate
    ```
@@ -73,7 +53,7 @@ A small Python project that uses a Genetic Algorithm (GA) to “evolve” sets o
 ---
 
 ## Project Structure
-
+This is probably inaccurate.
 ```
 euromillions-ga/
 ├── src/
@@ -112,7 +92,7 @@ euromillions-ga/
 
 - Lottery draws are effectively random—no algorithm can reliably predict them.  
 - This project is purely **exploratory** and **educational**.  
-- Do **not** use it for serious gambling purposes!  
+- Do **not** use it for serious gambling purposes!  If you do, do not blame me. 
 
 ---
 
