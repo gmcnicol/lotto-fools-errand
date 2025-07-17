@@ -17,8 +17,9 @@ A small Python project that uses a Genetic Algorithm (GA) to “evolve” sets o
 - **Fetch & cache** all past Euromillions draws locally  
 - **Define strategies** (e.g. modulo‐increment, random patterns) with configurable parameters  
 - **Automatically enumerate** all strategy/parameter variants  
-- **GA core engine** with elitism, crossover, mutation, convergence criteria  
+- **GA core engine** with pluggable elitism, crossover, mutation, and convergence strategies
 - **Command‐line interface** 
+- **Reusable GA core package** for non-lottery experiments
 
 ---
 
