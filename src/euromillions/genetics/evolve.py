@@ -18,6 +18,7 @@ MAX_TICKETS        = 7       # tickets per chromosome
 MUTATION_RATE      = 0.1     # per-gene flip probability
 MAX_GENERATIONS    = 100_000 # max iters per draw‐step
 CONVERGENCE_WINDOW = 1000    # stop if no improvement in this many gens
+BIG_PRIZE_EUROS    = 50      # consider convergence only after winning this much
 SLIDING_WINDOW     = 10      # None ⇒ use all past; int ⇒ only last W draws
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -51,42 +52,48 @@ def score_chromosome(
         variants: List,
         window_df: pd.DataFrame,
         prizes_df: pd.DataFrame
-) -> float:
+) -> tuple[float, float]:
     tickets = generate_tickets_from_variants(chrom, variants, window_df, MAX_TICKETS)
-    raw_score = evaluate_ticket_set(tickets, window_df, prizes_df)
-    return raw_score / len(window_df)
+    raw_score, prize = evaluate_ticket_set(tickets, window_df, prizes_df)
+    return raw_score / len(window_df), prize
 
 
 def evolve_window(
         population: List[Chromosome],
         scores: List[float],
+        prize_scores: List[float],
         variants: List,
         window_df: pd.DataFrame,
         prizes_df: pd.DataFrame
-) -> Tuple[List[Chromosome], List[float], Chromosome, float]:
+) -> Tuple[List[Chromosome], List[float], List[float], Chromosome, float]:
     best_score = max(scores)
     best_chrom = population[scores.index(best_score)]
     no_improve = 0
-
-    for gen in range(1, MAX_GENERATIONS + 1):
+    prize_found = any(p >= BIG_PRIZE_EUROS for p in prize_scores)
+    gens_since_win = 0
+    gen = 0
+    while True:
+        gen += 1
         # Steady‐state: breed one child, score it, insert + drop worst
         p1, p2 = random.sample(population, 2)
         child = mutate(crossover(p1, p2))
-        child_score = score_chromosome(child, variants, window_df, prizes_df)
+        child_score, child_prize = score_chromosome(child, variants, window_df, prizes_df)
 
         population.append(child)
         scores.append(child_score)
+        prize_scores.append(child_prize)
 
         # truncate back to POPULATION_SIZE
         paired = sorted(
-            zip(scores, population),
+            zip(scores, prize_scores, population),
             key=lambda x: x[0],
             reverse=True
         )[:POPULATION_SIZE]
 
         # unzip back into two lists
-        scores_tuple, population_tuple = zip(*paired)
+        scores_tuple, prizes_tuple, population_tuple = zip(*paired)
         scores = list(scores_tuple)
+        prize_scores = list(prizes_tuple)
         population = list(population_tuple)
 
         current_best_score = scores[0]
@@ -97,10 +104,14 @@ def evolve_window(
         else:
             no_improve += 1
 
-        if no_improve >= CONVERGENCE_WINDOW:
-            break
+        prize_found = prize_found or any(p >= BIG_PRIZE_EUROS for p in prize_scores)
 
-    return population, scores, best_chrom, best_score
+        if prize_found:
+            gens_since_win += 1
+            if no_improve >= CONVERGENCE_WINDOW or gens_since_win >= MAX_GENERATIONS:
+                break
+
+    return population, scores, prize_scores, best_chrom, best_score
 
 
 def report_draw(
@@ -206,6 +217,7 @@ def run_evolution():
     # initial population & scores
     population = initialize_population(num_strat, POPULATION_SIZE)
     scores     = [0.0] * POPULATION_SIZE
+    prizes     = [0.0] * POPULATION_SIZE
 
     best_global_score = float("-inf")
     best_global_chrom = None
@@ -223,14 +235,15 @@ def run_evolution():
         print(f"\n=== Draw {idx_plus_1}/{draws_len} using last {window_len} draws ===")
 
         # score initial population
-        scores = [
+        scored = [
             score_chromosome(chrom, variants, window_df, prizes_df)
             for chrom in population
         ]
+        scores, prizes = map(list, zip(*scored))
 
         # evolve on this window
-        population, scores, best_local_chrom, best_local_score = evolve_window(
-            population, scores, variants, window_df, prizes_df
+        population, scores, prizes, best_local_chrom, best_local_score = evolve_window(
+            population, scores, prizes, variants, window_df, prizes_df
         )
 
         # out‑of‑sample report on NEXT draw
