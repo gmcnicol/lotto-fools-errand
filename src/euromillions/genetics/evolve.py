@@ -19,6 +19,7 @@ MUTATION_RATE      = 0.1     # per-gene flip probability
 MAX_GENERATIONS    = 100_000 # max iters per draw‐step
 CONVERGENCE_WINDOW = 1000    # stop if no improvement in this many gens
 SLIDING_WINDOW     = 10      # None ⇒ use all past; int ⇒ only last W draws
+BIG_PRIZE_THRESHOLD = 1_000  # € threshold to start convergence tracking
 # ─────────────────────────────────────────────────────────────────────────────
 
 Chromosome = List[int]
@@ -68,8 +69,8 @@ def evolve_window(
     best_score = max(scores)
     best_chrom = population[scores.index(best_score)]
     no_improve = 0
-    prize_found = any(p > 0 for p in prize_scores)
-    gens_since_win = 0
+    big_prize_found = any(p >= BIG_PRIZE_THRESHOLD for p in prize_scores)
+    gens_since_big_win = 0
     gen = 0
     while True:
         gen += 1
@@ -103,11 +104,14 @@ def evolve_window(
         else:
             no_improve += 1
 
-        prize_found = prize_found or any(p > 0 for p in prize_scores)
+        big_prize_found = big_prize_found or any(
+            p >= BIG_PRIZE_THRESHOLD for p in prize_scores
+        )
 
-        if prize_found:
-            gens_since_win += 1
-            if no_improve >= CONVERGENCE_WINDOW or gens_since_win >= MAX_GENERATIONS:
+        if big_prize_found:
+            gens_since_big_win += 1
+            if (no_improve >= CONVERGENCE_WINDOW or
+                    gens_since_big_win >= MAX_GENERATIONS):
                 break
 
     return population, scores, prize_scores, best_chrom, best_score
