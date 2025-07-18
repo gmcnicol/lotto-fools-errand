@@ -47,4 +47,5 @@ def evaluate_chromosome(chromosome: Chromosome) -> float:
         draws_df,
         max_tickets=7,
     )
-    return evaluate_ticket_set(tickets, draws_df, prizes_df)
+    fitness, _ = evaluate_ticket_set(tickets, draws_df, prizes_df)
+    return fitness
