@@ -25,7 +25,7 @@ def evaluate_ticket_set(
         tickets: list[tuple[list[int], list[int]]],
         draws_df: pd.DataFrame,
         prizes_df: pd.DataFrame = None
-) -> float:
+) -> tuple[float, float]:
     """
     1) Normalize tickets → ensure all nums & stars are ints
     2) Prize‐only score (if enabled)
@@ -110,7 +110,7 @@ def evaluate_ticket_set(
         f"uni_pen: {uniformity_pen:.2f}, entropy: {entropy_bonus:.4f}, "
         f"pattern_pen: {pattern_pen:.1f} → total {fitness:.2f}"
     )
-    return fitness
+    return fitness, prize_score
 
 
 def _pattern_penalty(tickets: list[tuple[list[int], list[int]]]) -> float:
