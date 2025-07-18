@@ -18,7 +18,6 @@ MAX_TICKETS        = 7       # tickets per chromosome
 MUTATION_RATE      = 0.1     # per-gene flip probability
 MAX_GENERATIONS    = 100_000 # max iters per draw‐step
 CONVERGENCE_WINDOW = 1000    # stop if no improvement in this many gens
-BIG_PRIZE_EUROS    = 50      # consider convergence only after winning this much
 SLIDING_WINDOW     = 10      # None ⇒ use all past; int ⇒ only last W draws
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -69,7 +68,7 @@ def evolve_window(
     best_score = max(scores)
     best_chrom = population[scores.index(best_score)]
     no_improve = 0
-    prize_found = any(p >= BIG_PRIZE_EUROS for p in prize_scores)
+    prize_found = any(p > 0 for p in prize_scores)
     gens_since_win = 0
     gen = 0
     while True:
@@ -104,7 +103,7 @@ def evolve_window(
         else:
             no_improve += 1
 
-        prize_found = prize_found or any(p >= BIG_PRIZE_EUROS for p in prize_scores)
+        prize_found = prize_found or any(p > 0 for p in prize_scores)
 
         if prize_found:
             gens_since_win += 1
