@@ -29,4 +29,4 @@ def sum_target_generator_factory(tolerance: float = 1.0):
 
 
 def get_variants() -> list[callable]:
-    return [sum_target_generator_factory(t) for t in [0.5, 1.0]]
+    return [sum_target_generator_factory(t) for t in [0.2, 0.5, 1.0, 1.5, 2.0, 2.5]]

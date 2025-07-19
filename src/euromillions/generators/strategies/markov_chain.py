@@ -24,7 +24,7 @@ def markov_chain_generator_factory(
     variants: List[Generator] = []
     # avoid mutable default
     if window_sizes is None:
-        window_sizes = [5, 10, 20]
+        window_sizes = [5, 8, 13, 21, 34, 55, 89]
 
     for W in window_sizes:
         def make_generator(window: int):

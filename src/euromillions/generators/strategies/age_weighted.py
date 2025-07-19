@@ -47,5 +47,5 @@ def age_weighted_generator_factory(exponent: float = 1.0):
 
 
 def get_variants() -> list[callable]:
-    exps = [1.0, 2.0]
+    exps = [0.2, 0.7, 1.3, 2.0, 3.0]
     return [age_weighted_generator_factory(e) for e in exps]

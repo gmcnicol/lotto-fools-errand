@@ -8,7 +8,7 @@ def get_variants(window_sizes=None):
     and return a list of up to max_tickets (numbers, stars) tuples.
     """
     if window_sizes is None:
-        window_sizes = [10, 20, 50]  # you can pick whatever you like
+        window_sizes = [13, 21, 34, 55, 89, 144, 233]  # big Fibonacci numbers
 
     variants = []
     for w in window_sizes:

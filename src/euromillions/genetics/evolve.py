@@ -2,6 +2,7 @@
 
 import random
 from typing import List, Tuple
+
 import pandas as pd
 
 from euromillions.euromillions_loader import load_draws_df, load_prizes_df
@@ -13,18 +14,18 @@ from euromillions.genetics.fitness import evaluate_ticket_set
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GA PARAMETERS
-POPULATION_SIZE    = 105      # number of chromosomes
-MAX_TICKETS        = 4       # tickets per chromosome
-MUTATION_RATE      = 0.1     # per-gene flip probability
-MAX_GENERATIONS    = 10_000 # max iters per draw‐step
-CONVERGENCE_WINDOW = 1_000    # stop if no improvement in this many gens
-SLIDING_WINDOW     = 10      # None ⇒ use all past; int ⇒ only last W draws
-BIG_PRIZE_THRESHOLD = 1_000  # € threshold to start convergence tracking
+POPULATION_SIZE = 105  # number of chromosomes
+MAX_TICKETS = 4  # tickets per chromosome
+MUTATION_RATE = 0.1  # per-gene flip probability
+MAX_GENERATIONS = 10_000  # max iters per draw‐step
+CONVERGENCE_WINDOW = 1_000  # stop if no improvement in this many gens
+SLIDING_WINDOW = 1  # None ⇒ use all past; int ⇒ only last W draws
+BIG_PRIZE_THRESHOLD = 10_000  # € threshold to start convergence tracking
 # ─────────────────────────────────────────────────────────────────────────────
 
 Chromosome = List[int]
-Ticket     = Tuple[List[int], List[int]]
-Formatted  = Tuple[List[str], List[str]]
+Ticket = Tuple[List[int], List[int]]
+Formatted = Tuple[List[str], List[str]]
 
 
 def initialize_population(length: int, size: int) -> List[Chromosome]:
@@ -69,11 +70,11 @@ def evolve_window(
     best_score = max(scores)
     best_chrom = population[scores.index(best_score)]
     no_improve = 0
-    big_prize_found = any(p >= BIG_PRIZE_THRESHOLD for p in prize_scores)
-    gens_since_big_win = 0
+    big_prize_found = False
     gen = 0
     while True:
-        gen += 1
+        if big_prize_found:
+            gen += 1
         # Steady‐state: breed one child, score it, insert + drop worst
         p1, p2 = random.sample(population, 2)
         child = mutate(crossover(p1, p2))
@@ -83,7 +84,6 @@ def evolve_window(
         scores.append(child_score)
         prize_scores.append(child_prize)
 
-        # truncate back to POPULATION_SIZE
         paired = sorted(
             zip(scores, prize_scores, population),
             key=lambda x: x[0],
@@ -104,15 +104,17 @@ def evolve_window(
         else:
             no_improve += 1
 
-        big_prize_found = big_prize_found or any(
-            p >= BIG_PRIZE_THRESHOLD for p in prize_scores
-        )
+        big_prize_found = big_prize_found or child_prize >= BIG_PRIZE_THRESHOLD
 
-        if big_prize_found:
-            gens_since_big_win += 1
-            if (no_improve >= CONVERGENCE_WINDOW or
-                    gens_since_big_win >= MAX_GENERATIONS):
-                break
+        if not big_prize_found and child_prize >= BIG_PRIZE_THRESHOLD:
+            print(f"First Big prize found: €{child_prize:,.2f} with {child}")
+            no_improve = 0
+
+        if big_prize_found and child_prize >= BIG_PRIZE_THRESHOLD:
+            print(f"New Big prize found: €{child_prize:.2f} with {child}")
+
+        if (big_prize_found and no_improve >= CONVERGENCE_WINDOW) or gen >= MAX_GENERATIONS:
+            break
 
     return population, scores, prize_scores, best_chrom, best_score
 
@@ -151,7 +153,7 @@ def report_draw(
     # 4) Highlight & tally prizes
     total_prize = 0.0
     for idx, (nums, stars) in enumerate(unique, start=1):
-        nums_i  = sorted(int(n) for n in nums)
+        nums_i = sorted(int(n) for n in nums)
         stars_i = sorted(int(s) for s in stars)
 
         hn = " ".join(f"*{n:02d}*" if n in draw_nums else f" {n:02d} " for n in nums_i)
@@ -175,7 +177,7 @@ def report_draw(
 def format_tickets(raw_tickets: List[Ticket]) -> List[Formatted]:
     formatted = []
     for nums, stars in raw_tickets:
-        nums_i  = sorted(int(n) for n in nums)
+        nums_i = sorted(int(n) for n in nums)
         stars_i = sorted(int(s) for s in stars)
         formatted.append((
             [f"{n:02d}" for n in nums_i],
@@ -206,21 +208,24 @@ def dedupe_and_limit(
 def print_aligned_tickets(tickets: List[Formatted], title: str):
     print(f"\n{title}")
     print(f"{'Ticket':<6} | {'Numbers':<17} | {'Stars'}")
-    print(f"{'-'*6}-+-{'-'*17}-+-{'-'*5}")
+    print(f"{'-' * 6}-+-{'-' * 17}-+-{'-' * 5}")
     for idx, (nums, stars) in enumerate(tickets, start=1):
         print(f"{idx:<6} | {' '.join(nums):<17} | {' '.join(stars)}")
 
 
 def run_evolution():
-    draws_df  = load_draws_df()
+    draws_df = load_draws_df()
     prizes_df = load_prizes_df()
-    variants  = get_all_strategy_variants()
+    variants = get_all_strategy_variants()
     num_strat = len(variants)
+    print(f"Using {num_strat} strategy variants for evolution.")
+    for variant in variants:
+        print(f"Variant: {variant}")
 
     # initial population & scores
     population = initialize_population(num_strat, POPULATION_SIZE)
-    scores     = [0.0] * POPULATION_SIZE
-    prizes     = [0.0] * POPULATION_SIZE
+    scores = [0.0] * POPULATION_SIZE
+    prizes = [0.0] * POPULATION_SIZE
 
     best_global_score = float("-inf")
     best_global_chrom = None
@@ -232,8 +237,8 @@ def run_evolution():
             continue
 
         window_start = 0 if SLIDING_WINDOW is None else max(0, draw_idx - SLIDING_WINDOW + 1)
-        window_df    = draws_df.iloc[window_start: idx_plus_1]
-        window_len   = len(window_df)
+        window_df = draws_df.iloc[window_start: idx_plus_1]
+        window_len = len(window_df)
 
         print(f"\n=== Draw {idx_plus_1}/{draws_len} using last {window_len} draws ===")
 

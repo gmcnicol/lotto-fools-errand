@@ -39,6 +39,6 @@ def decay_weighted_generator_factory(decay: float = 0.95, window: int | None = N
 
 
 def get_variants() -> list[callable]:
-    decays = [0.9, 0.95]
-    windows = [None, 20]
+    decays = [0.85, 0.9, 0.93, 0.95, 0.98]
+    windows = [None, 10, 20, 50, 100]
     return [decay_weighted_generator_factory(d, w) for d in decays for w in windows]

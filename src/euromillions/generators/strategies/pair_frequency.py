@@ -50,5 +50,5 @@ def pair_frequency_generator_factory(window: int | None = None):
 
 
 def get_variants() -> list[callable]:
-    windows = [None, 30]
+    windows = [None, 5, 8, 13, 21, 34]
     return [pair_frequency_generator_factory(w) for w in windows]

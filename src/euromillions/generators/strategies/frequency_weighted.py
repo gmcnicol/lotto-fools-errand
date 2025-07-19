@@ -2,8 +2,8 @@ import random
 from collections import Counter
 import pandas as pd
 
-WINDOW_SIZES = [5, 15, 30]
-EXPONENTS    = [0.5, 1.0, 2.0]
+WINDOW_SIZES = [5, 10, 15, 20, 30, 50, 100]
+EXPONENTS    = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0]
 
 def frequency_weighted_generator_factory(window_size: int, exponent: float):
     def generator(draws_df: pd.DataFrame, num_tickets: int):
