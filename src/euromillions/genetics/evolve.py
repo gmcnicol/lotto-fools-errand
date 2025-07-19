@@ -13,11 +13,11 @@ from euromillions.genetics.fitness import evaluate_ticket_set
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GA PARAMETERS
-POPULATION_SIZE    = 100      # number of chromosomes
-MAX_TICKETS        = 7       # tickets per chromosome
+POPULATION_SIZE    = 105      # number of chromosomes
+MAX_TICKETS        = 4       # tickets per chromosome
 MUTATION_RATE      = 0.1     # per-gene flip probability
-MAX_GENERATIONS    = 100_000 # max iters per draw‐step
-CONVERGENCE_WINDOW = 1000    # stop if no improvement in this many gens
+MAX_GENERATIONS    = 10_000 # max iters per draw‐step
+CONVERGENCE_WINDOW = 1_000    # stop if no improvement in this many gens
 SLIDING_WINDOW     = 10      # None ⇒ use all past; int ⇒ only last W draws
 BIG_PRIZE_THRESHOLD = 1_000  # € threshold to start convergence tracking
 # ─────────────────────────────────────────────────────────────────────────────
