@@ -6,6 +6,8 @@ from .strategies.decay_weighted import get_variants as decay_weighted_variants
 from .strategies.pair_frequency import get_variants as pair_frequency_variants
 from .strategies.parity_balance import get_variants as parity_balance_variants
 from .strategies.sum_target import get_variants as sum_target_variants
+from .strategies.autocorrelation import get_variants as autocorrelation_variants
+from .strategies.fft import get_variants as fft_variants
 from .ticket_generator import generate_tickets_from_variants
 
 __all__ = ["get_all_strategy_variants", "generate_tickets_from_variants"]
@@ -21,4 +23,6 @@ def get_all_strategy_variants() -> list:
     variants.extend(pair_frequency_variants())
     variants.extend(parity_balance_variants())
     variants.extend(sum_target_variants())
+    variants.extend(autocorrelation_variants())
+    variants.extend(fft_variants())
     return variants
